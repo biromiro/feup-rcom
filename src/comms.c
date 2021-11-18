@@ -12,3 +12,8 @@ int send_s_u_frame(int fd, Source src, int ctrl)
 
   return write(fd, buf, 5);
 }
+
+int send_i_frame(int fd, int ctrl)
+{
+  return 0;
+}

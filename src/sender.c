@@ -21,7 +21,7 @@
 #include "utils.h"
 #include "comms.h"
 
-typedef enum State {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, STOP};
+typedef enum State {START, FLAG_RCV, A_REC, C_REC, BCC_OK, STOP};
 
 
 int main(int argc, char **argv)
@@ -34,7 +34,9 @@ int main(int argc, char **argv)
 
   if ((argc < 2) ||
       ((strcmp("/dev/ttyS0", argv[1]) != 0) &&
-       (strcmp("/dev/ttyS1", argv[1]) != 0)))
+       (strcmp("/dev/ttyS1", argv[1]) != 0) &&
+       (strcmp("/dev/ttyS10", argv[1]) != 0) &&
+       (strcmp("/dev/ttyS11", argv[1]) != 0)))
   {
     printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
     exit(1);
@@ -84,7 +86,15 @@ int main(int argc, char **argv)
 
   printf("New termios structure set\n");
 
-  send_s_u_frame(fd, SENDER, SET);
+  //send_s_u_frame(fd, SENDER, SET);
+
+  buf[0] = FLAG;
+  buf[1] = A_SND;
+  buf[2] = SET;
+  buf[3] = BCC(buf[1], buf[2]);
+  buf[4] = FLAG;
+
+  write(fd, buf, 5);
   
   enum State cur_state = START;
   char a_val, c_val;
@@ -101,23 +111,23 @@ int main(int argc, char **argv)
         case FLAG_RCV:
             printf("rcv\n");
             if (buf[0] == A_SND){
-                cur_state = A_RCV;
+                cur_state = A_REC;
                 a_val = buf[0];
             }
             else if (buf[0] != FLAG) cur_state = START;
             break;
         
-        case A_RCV:
+        case A_REC:
             printf("a\n");
             if (buf[0] == UA){
-                cur_state = C_RCV;
+                cur_state = C_REC;
                 c_val = buf[0];
             }
             else if (buf[0] == FLAG) cur_state = FLAG_RCV;
             else cur_state = START;
             break;
         
-        case C_RCV:
+        case C_REC:
             printf("c\n");
             if (BCC(a_val,c_val) == buf[0])
                 cur_state = BCC_OK;

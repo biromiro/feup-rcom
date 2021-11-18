@@ -14,28 +14,41 @@
 #include <unistd.h>
 
 #include "utils.h"
+#include "comms.h"
 
 #define BAUDRATE B38400
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
 
-typedef enum State {START, FLAG_RCV, A_RCV, C_RCV, BCC_OK, STOP};
+typedef enum State {START, FLAG_RCV, A_REC, C_REC, BCC_OK, STOP};
 
 int main(int argc, char **argv)
 {
   int fd, res;
   struct termios oldtio, newtio;
   char buf[5], resp[5];
+
+  struct linkLayer ll;
+
+  int timeout_no = 0;
   
 
   if ((argc < 2) ||
       ((strcmp("/dev/ttyS0", argv[1]) != 0) &&
-       (strcmp("/dev/ttyS1", argv[1]) != 0)))
+       (strcmp("/dev/ttyS1", argv[1]) != 0) &&
+       (strcmp("/dev/ttyS10", argv[1]) != 0) &&
+       (strcmp("/dev/ttyS11", argv[1]) != 0)))
   {
     printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
     exit(1);
   }
+
+  strncpy(ll.port, argv[1], 20);
+  ll.baudRate = BAUDRATE;
+  
+  ll.timeout = 30;
+  ll.numTransmissions = 3;
 
   /*
     Open serial port device for reading and writing and not as controlling tty
@@ -56,19 +69,19 @@ int main(int argc, char **argv)
   }
 
   bzero(&newtio, sizeof(newtio));
-  newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+  newtio.c_cflag = ll.baudRate | CS8 | CLOCAL | CREAD;
   newtio.c_iflag = IGNPAR;
   newtio.c_oflag = 0;
 
   /* set input mode (non-canonical, no echo,...) */
   newtio.c_lflag = 0;
 
-  newtio.c_cc[VTIME] = 0; /* inter-character timer unused */
-  newtio.c_cc[VMIN] = 5;  /* blocking read until 5 chars received */
+  newtio.c_cc[VTIME] = ll.timeout;
+  newtio.c_cc[VMIN] = 0;
 
   /* 
     VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
-    leitura do(s) pr�ximo(s) caracter(es)
+    leitura do(s) proximo(s) caracter(es)
   */
 
   tcflush(fd, TCIOFLUSH);
@@ -84,34 +97,38 @@ int main(int argc, char **argv)
   enum State cur_state = START;
   char a_val, c_val;    
 
-  while (cur_state != STOP) { 
+  while (cur_state != STOP && timeout_no < ll.numTransmissions) { 
     res = read(fd, buf, 1);
+
+    if (!buf[0])
+      timeout_no++;
+    
     switch (cur_state) {
         case START:
             if (buf[0] == FLAG) cur_state = FLAG_RCV;
-            else printf("Unknown message byte\n");
+            else printf("Unknown message byte: %x\n", buf[0]);
             break;
         
         case FLAG_RCV:
             printf("rcv\n");
             if (buf[0] == A_SND){
-                cur_state = A_RCV;
+                cur_state = A_REC;
                 a_val = buf[0];
             }
             else if (buf[0] != FLAG) cur_state = START;
             break;
         
-        case A_RCV:
+        case A_REC:
             printf("a\n");
             if (buf[0] == SET){
-                cur_state = C_RCV;
+                cur_state = C_REC;
                 c_val = buf[0];
             }
             else if (buf[0] == FLAG) cur_state = FLAG_RCV;
             else cur_state = START;
             break;
         
-        case C_RCV:
+        case C_REC:
             printf("c\n");
             if (BCC(a_val,c_val) == buf[0])
                 cur_state = BCC_OK;
@@ -130,20 +147,24 @@ int main(int argc, char **argv)
     }
   }
 
-  printf("a = %x, c = %x\n", a_val, c_val);
+  if(timeout_no != ll.numTransmissions)
+  {
+    printf("a = %x, c = %x\n", a_val, c_val);
 
-  printf("Got packet. Sending response...\n");
+    printf("Got packet. Sending response...\n");
 
-  resp[0] = FLAG;
-  resp[1] = A_SND;
-  resp[2] = UA;
-  resp[3] = BCC(resp[1], resp[2]);
-  resp[4] = FLAG;
+    resp[0] = FLAG;
+    resp[1] = A_SND;
+    resp[2] = UA;
+    resp[3] = BCC(resp[1], resp[2]);
+    resp[4] = FLAG;
 
 
-  write(fd, resp, 5);
+    write(fd, resp, 5);
 
-  printf("Response sent.\n");
+    printf("Response sent.\n");
+  }
+  else printf("Timed out.\n");
 
   tcsetattr(fd, TCSANOW, &oldtio);
   close(fd);
