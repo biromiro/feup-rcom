@@ -4,4 +4,3 @@
 #define SET 0x03
 #define UA 0x07
 #define BCC(a,b) a^b
-
