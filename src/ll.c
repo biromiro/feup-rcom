@@ -1,71 +1,45 @@
 #include "ll.h"
 
+#include <stdio.h>
+#include <string.h>
+#include <termios.h>
+#include <fcntl.h>
+
+#define MAX_NPORT_SIZE 5
+
 struct termios oldtio;
-int numTransmissions;
 Source role;
-
-int llconfig(linkLayer ll)
-{
-    struct termios newtio;
-
-    if (tcgetattr(fd, &oldtio) == -1)
-    { /* save current port settings */
-        perror("tcgetattr");
-        exit(-1);
-    }
-
-    bzero(&newtio, sizeof(newtio));
-    newtio.c_cflag = ll.baudRate | CS8 | CLOCAL | CREAD;
-    newtio.c_iflag = IGNPAR;
-    newtio.c_oflag = 0;
-
-    /* set input mode (non-canonical, no echo,...) */
-    newtio.c_lflag = 0;
-
-    newtio.c_cc[VTIME] = ll.timeout;
-    newtio.c_cc[VMIN] = 0;
-
-    /* 
-    VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
-    leitura do(s) proximo(s) caracter(es)
-    */
-
-    numTransmissions = ll.numTransmissions;
-
-    tcflush(fd, TCIOFLUSH);
-
-    if (tcsetattr(fd, TCSANOW, &newtio) == -1)
-    {
-        perror("tcsetattr");
-        exit(-1);
-    }
-
-    printf("New termios structure set\n");
-}
+linkLayer ll;
 
 int llopen(int port, Source newRole)
 {
-    char[20] serial_port;
+    llconfig_reset(&ll);
 
-    if(port == 0 || port == 1 || port == 10 || port == 11)
-        snprintf(serial_port, "/dev/ttyS%d", port);
+    char nport_str[MAX_NPORT_SIZE];
+    snprintf(nport_str, MAX_NPORT_SIZE, "%d", port); //port to str
     
-    int fd = open(serial_port, O_RDWR | O_NOCTTY);
+    strcat(ll.port, nport_str);
+    
+    int fd = open(ll.port, O_RDWR | O_NOCTTY);
     if (fd < 0)
     {
-        perror(serial_port);
+        perror(ll.port);
         return -1;
     }
 
+    llconfig(fd, &ll, &oldtio);
+
     role = newRole;
+
+    int timeout_no = 0;
 
     if(newRole == SENDER)
     {
         while(timeout_no < ll.numTransmissions)
         {
-            send_s_u_frame(fd, src, SET);
+            send_s_u_frame(fd, SENDER, SET);
 
-            if(receive_s_u_frame(src, UA))
+            if(receive_s_u_frame(fd, SENDER, UA) == 0)
                 break;
             else timeout_no++;
         }
@@ -76,7 +50,7 @@ int llopen(int port, Source newRole)
 
     else
     {
-        while(!receive_s_u_frame(SENDER, SET));
+        while(receive_s_u_frame(fd, SENDER, SET) != 0);
 
         send_s_u_frame(fd, SENDER, UA);
     }
@@ -84,7 +58,38 @@ int llopen(int port, Source newRole)
     return fd;
 }
 
+int llwrite(int fd, char *buffer, int length)
+{
+    if(length <= 0)
+        return -1;
+    
+    send_i_frame(fd, buffer, length, ll.sequenceNumber);
+    //receive_i_ack(fd);
+}
+
+int llread(int fd, char *buffer)
+{
+    
+}
+
 int llclose(int fd)
 {
+    if(role == SENDER)
+    {
+        send_s_u_frame(fd, SENDER, DISC);
+        receive_s_u_frame(fd, SENDER, DISC);
+        send_s_u_frame(fd, SENDER, UA);
+    }
 
+    else
+    {
+        receive_s_u_frame(fd, SENDER, DISC);
+        send_s_u_frame(fd, SENDER, DISC);
+        receive_s_u_frame(fd, SENDER, UA);
+    }
+    
+    tcsetattr(fd, TCSANOW, &oldtio);
+    close(fd);
+
+    return 1;
 }
