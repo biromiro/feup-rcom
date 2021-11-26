@@ -41,6 +41,10 @@ int main(int argc, char **argv)
   if (fd < 0)
     return -1;
   
+  char message[] = "Hello world!";
+  
+  llwrite(fd, message, 13);
+  
   printf("---- Closing ----\n\n");
 
   llclose(fd);

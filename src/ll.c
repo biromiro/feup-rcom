@@ -39,7 +39,7 @@ int llopen(int port, Source newRole)
         {
             send_s_u_frame(fd, SENDER, SET);
 
-            if(receive_s_u_frame(fd, SENDER, UA) == 0)
+            if(receive_s_u_frame(fd, SENDER) == UA)
                 break;
             else timeout_no++;
         }
@@ -50,7 +50,7 @@ int llopen(int port, Source newRole)
 
     else
     {
-        while(receive_s_u_frame(fd, SENDER, SET) != 0);
+        while(receive_s_u_frame(fd, SENDER) != SET);
 
         send_s_u_frame(fd, SENDER, UA);
     }
@@ -63,13 +63,32 @@ int llwrite(int fd, char *buffer, int length)
     if(length <= 0)
         return -1;
     
-    send_i_frame(fd, buffer, length, ll.sequenceNumber);
-    //receive_i_ack(fd);
+    int response, timeout_no=0;
+
+    while(response != RR(!ll.sequenceNumber) && timeout_no < ll.numTransmissions)
+    {
+        send_i_frame(fd, buffer, length, ll.sequenceNumber);
+        response = receive_s_u_frame(fd, role);
+        timeout_no++;
+        if(response == REJ(ll.sequenceNumber))
+            timeout_no = 0;
+    }
+
+    if(timeout_no == ll.numTransmissions) return -1;
+
+    ll.sequenceNumber = ll.sequenceNumber ? 0 : 1;
+    return length;
+    
 }
 
 int llread(int fd, char *buffer)
 {
-    
+    printf("seqnum: %d\n", ll.sequenceNumber);
+    int result = receive_i_frame(fd, buffer, ll.sequenceNumber);
+    ll.sequenceNumber = ll.sequenceNumber ? 0 : 1;
+
+    send_s_u_frame(fd, SENDER, RR(ll.sequenceNumber));
+    return result;
 }
 
 int llclose(int fd)
@@ -77,15 +96,15 @@ int llclose(int fd)
     if(role == SENDER)
     {
         send_s_u_frame(fd, SENDER, DISC);
-        receive_s_u_frame(fd, SENDER, DISC);
+        receive_s_u_frame(fd, SENDER); //DISC
         send_s_u_frame(fd, SENDER, UA);
     }
 
     else
     {
-        receive_s_u_frame(fd, SENDER, DISC);
+        receive_s_u_frame(fd, SENDER); //DISC
         send_s_u_frame(fd, SENDER, DISC);
-        receive_s_u_frame(fd, SENDER, UA);
+        receive_s_u_frame(fd, SENDER); //UA
     }
     
     tcsetattr(fd, TCSANOW, &oldtio);

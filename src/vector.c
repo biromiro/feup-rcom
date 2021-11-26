@@ -11,8 +11,9 @@ void vector_init(vector *v)
 
 void vector_from_arr(vector *v, char *arr, int size)
 {
-    v->size = size;
-    v->items = arr;
+    vector_init(v);
+    for(int i = 0; i < size; i++)
+        vector_push_back(v, arr[i]);
 }
 
 int vector_size(vector *v)
@@ -21,11 +22,11 @@ int vector_size(vector *v)
 }
 
 void vector_resize(vector *v, int newSize)
-{
-    char *items = realloc(v->items, sizeof(char *) * newSize);
+{   
+    void *items = realloc(v->items, newSize);
     if (items)
     {
-        v->items = items;
+        v->items = (char*) items;
         v->size = newSize;
     }
 }

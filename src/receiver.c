@@ -41,6 +41,16 @@ int main(int argc, char **argv)
   if (fd < 0)
     return -1;
   
+  char content[100] = {0};
+  
+  int size = llread(fd, content);
+
+  printf("Got %d bytes. Content:", size);
+  for (int i = 0; i < size; i++) {
+    printf("%x ", content[i]);
+  }
+  printf("\n");
+
   printf("---- Closing ----\n\n");
 
   llclose(fd);

@@ -3,13 +3,15 @@
 
 #define FLAG 0x7e
 #define ESC 0x7d
-#define ESCAPED(b) 0x20^b
+#define ESCAPED(b) (0x20^b)
 #define A_SND 0x03
 #define A_RCV 0x01
 #define SET 0x03
 #define UA 0x07
 #define DISC 0x0B
-#define BCC(a,b) a^b
+#define RR(r) ((r << 6) | 0x05)
+#define REJ(r) ((r << 6) | 0x01)
+#define BCC(a,b) (a^b)
 
 #define MAX_PORT_SIZE 20
 #define BAUDRATE B38400
@@ -24,7 +26,7 @@
 
 typedef enum {SENDER, RECEIVER} Source;
 
-typedef enum {START, FLAG_RCV, A_REC, C_REC, BCC_OK, DATA, STOP} State;
+typedef enum {START, FLAG_RCV, A_REC, C_REC, BCC_OK, DATA, ERROR, STOP} State;
 
 typedef struct {
     char port[MAX_PORT_SIZE];

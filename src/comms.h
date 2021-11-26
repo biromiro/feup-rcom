@@ -12,8 +12,10 @@ int stuff(vector *v);
 
 int send_s_u_frame(int fd, Source src, int ctrl);
 
-int receive_s_u_frame(int fd, Source src, int ctrl);
+char receive_s_u_frame(int fd, Source src);
 
 int send_i_frame(int fd, char *buffer, int length, bool seqNum);
+
+int receive_i_frame(int fd, char *buffer, bool seqNum);
 
 #endif
