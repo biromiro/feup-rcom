@@ -1,4 +1,5 @@
 #include "comms.h"
+#include "utils.h"
 #include "vector.h"
 #include <stdio.h>
 
@@ -59,7 +60,7 @@ char receive_s_u_frame(int fd, Source src)
     printf("Expecting S/U frame.\n");
 
     char buf[5];
-    char ctrl = -1;
+    char ctrl = 0;
     int res;
 
     State cur_state = START;
@@ -172,6 +173,7 @@ int receive_i_frame(int fd, char *buffer, bool seqNum)
 
     const char address = A_SND;
     char ctrl = seqNum << 6;
+    char inv_ctrl = invSN(seqNum) << 6;
 
     State cur_state = START;
 
@@ -213,38 +215,37 @@ int receive_i_frame(int fd, char *buffer, bool seqNum)
 
     cur_state = START;
 
-    while (cur_state != STOP && cur_state != ERROR && index < v.size) {
+    while (cur_state < STOP && index < v.size) {
         buf[0] = vector_get(&v, index);
         printf("got: %x\n", buf[0]);
         switch (cur_state) {
             case START:
                 if (buf[0] == FLAG) cur_state = FLAG_RCV;
-                else printf("Unknown message byte\n");
+                else cur_state = HEADER_ERR;
                 break;
             
             case FLAG_RCV:
                 printf("rcv\n");
                 if (buf[0] == address)
                     cur_state = A_REC;
-                else if (buf[0] != FLAG) cur_state = START;
+                else cur_state = HEADER_ERR;
                 break;
             
             case A_REC:
                 printf("a\n");
-                if (buf[0] == ctrl)
+                if (buf[0] == ctrl || buf[0] == inv_ctrl)
                     cur_state = C_REC;
-                else if (buf[0] == FLAG) cur_state = FLAG_RCV;
-                else cur_state = START;
+                else cur_state = HEADER_ERR;
                 break;
             
             case C_REC:
                 printf("c\n");
                 if (BCC(address,ctrl) == buf[0])
                     cur_state = DATA;
-                else if (buf[0] == FLAG)
-                    cur_state = FLAG_RCV;
+                else if (BCC(address, inv_ctrl) == buf[0])
+                    cur_state = SEQNUM_ERR;
                 else
-                    cur_state = START;
+                    cur_state = HEADER_ERR;
                 break;
             
             case DATA:
@@ -254,7 +255,7 @@ int receive_i_frame(int fd, char *buffer, bool seqNum)
                     if(cur_bcc == prev_byte)
                         cur_state = STOP;
                     else
-                        cur_state = ERROR;
+                        cur_state = DATA_ERR;
                 }
                 else
                 {
@@ -295,8 +296,12 @@ int receive_i_frame(int fd, char *buffer, bool seqNum)
 
     vector_free(&v);
     
-    if(cur_state == ERROR)
-        return 0;
-    else
+    if(cur_state == HEADER_ERR)
+        return -2;
+    if (cur_state == DATA_ERR)
         return -1;
+    if (cur_state == SEQNUM_ERR)
+        return 0;
+    
+    return -3;
 }

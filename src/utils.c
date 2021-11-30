@@ -7,6 +7,8 @@ int llconfig_reset(linkLayer* ll)
     ll->sequenceNumber = 0;
     ll->timeout = TIMEOUT;
     ll->numTransmissions = NUM_TRANSM;
+
+    return 0;
 }
 
 int llconfig(int fd, linkLayer* ll, struct termios *oldtio)
@@ -44,4 +46,6 @@ int llconfig(int fd, linkLayer* ll, struct termios *oldtio)
     }
 
     printf("New termios structure set\n");
+
+    return 0;
 }

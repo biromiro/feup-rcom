@@ -13,36 +13,53 @@
 #include <unistd.h>
 
 #include "comms.h"
-#include "app.h"
-#include "utils.h"
+#include "ll.h"
 
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 
 int main(int argc, char **argv)
 {
+  int fd;
+  char buf[5], resp[5];
+
   if ((argc < 2) ||
       ((strcmp("/dev/ttyS0", argv[1]) != 0) &&
        (strcmp("/dev/ttyS1", argv[1]) != 0) &&
        (strcmp("/dev/ttyS10", argv[1]) != 0) &&
        (strcmp("/dev/ttyS11", argv[1]) != 0)))
   {
-    printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1 [msg]\n");
+    printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
     exit(1);
   }
 
   int port = atoi(argv[1] + 9);
 
-  printf("Starting...\n");
+  fd = llopen(port, RECEIVER);
 
-  app_start(port, RECEIVER);
+  printf("---- Finished syncing ----\n\n\n");
 
-  printf("Waiting to receive start packet.\n");
-
-  receive_start_packet();
-
-  printf("Closing...\n");
+  if (fd < 0)
+    return -1;
   
-  app_end();
+  char content[100] = {0};
+  
+  int size = llread(fd, content);
+
+  printf("Got %d bytes. Content:", size);
+  printf("%s\n\n", content);
+
+  memset(content, 0, 100);
+
+  size = llread(fd, content);
+
+  printf("Got %d bytes. Content:", size);
+  printf("%s\n\n", content);
+
+  printf("\n");
+
+  printf("---- Closing ----\n\n");
+
+  llclose(fd);
 
   return 0;
 }

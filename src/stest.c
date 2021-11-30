@@ -1,3 +1,4 @@
+
 /** 
  * Non-Canonical Input Processing
  * From https://tldp.org/HOWTO/Serial-Programming-HOWTO/x115.html by Gary Frerking and Peter Baumann
@@ -13,36 +14,45 @@
 #include <unistd.h>
 
 #include "comms.h"
-#include "app.h"
-#include "utils.h"
+#include "ll.h"
 
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 
 int main(int argc, char **argv)
 {
+  int fd;
+  char buf[5], resp[5];
+
   if ((argc < 2) ||
       ((strcmp("/dev/ttyS0", argv[1]) != 0) &&
        (strcmp("/dev/ttyS1", argv[1]) != 0) &&
        (strcmp("/dev/ttyS10", argv[1]) != 0) &&
        (strcmp("/dev/ttyS11", argv[1]) != 0)))
   {
-    printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1 [msg]\n");
+    printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
     exit(1);
   }
 
   int port = atoi(argv[1] + 9);
 
-  printf("Starting...\n");
+  fd = llopen(port, SENDER);
 
-  app_start(port, RECEIVER);
+  printf("---- Finished syncing ----\n\n\n");
 
-  printf("Waiting to receive start packet.\n");
-
-  receive_start_packet();
-
-  printf("Closing...\n");
+  if (fd < 0)
+    return -1;
   
-  app_end();
+  char message[] = "Hello world!";
+
+  char message2[] = "hey there";
+  
+  llwrite(fd, message, 13);
+
+  llwrite(fd, message2, strlen(message2));
+  
+  printf("---- Closing ----\n\n");
+
+  llclose(fd);
 
   return 0;
 }

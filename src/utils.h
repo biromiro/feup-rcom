@@ -9,9 +9,10 @@
 #define SET 0x03
 #define UA 0x07
 #define DISC 0x0B
-#define RR(r) ((r << 6) | 0x05)
-#define REJ(r) ((r << 6) | 0x01)
+#define RR(r) ((r << 7) | 0x05)
+#define REJ(r) ((r << 7) | 0x01)
 #define BCC(a,b) (a^b)
+#define invSN(sn) (sn ? 0 : 1)
 
 #define MAX_PORT_SIZE 20
 #define BAUDRATE B38400
@@ -26,7 +27,7 @@
 
 typedef enum {SENDER, RECEIVER} Source;
 
-typedef enum {START, FLAG_RCV, A_REC, C_REC, BCC_OK, DATA, ERROR, STOP} State;
+typedef enum {START, FLAG_RCV, A_REC, C_REC, BCC_OK, DATA, STOP, HEADER_ERR, DATA_ERR, SEQNUM_ERR} State;
 
 typedef struct {
     char port[MAX_PORT_SIZE];
