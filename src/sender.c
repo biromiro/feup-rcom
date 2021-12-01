@@ -19,13 +19,13 @@
 
 int main(int argc, char **argv)
 {
-  if ((argc < 2) ||
+  if ((argc < 3) ||
       ((strcmp("/dev/ttyS0", argv[1]) != 0) &&
        (strcmp("/dev/ttyS1", argv[1]) != 0) &&
        (strcmp("/dev/ttyS10", argv[1]) != 0) &&
        (strcmp("/dev/ttyS11", argv[1]) != 0)))
   {
-    printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1 [msg]\n");
+    printf("Usage:\tapp SerialPort Filepath\n\tex: app /dev/ttyS1 ./pinguim.gif\n");
     exit(1);
   }
 
@@ -37,26 +37,17 @@ int main(int argc, char **argv)
 
   printf("Assembling and sending...\n");
 
-  TLV filename;
-  filename.T = 0;
-  char strfilename[] = "pinguim.gif";
-  filename.L = strlen(strfilename);
-  filename.V = strfilename;
+  char *filepath = argv[2];
 
-  TLV filesize;
-  filesize.T = 1;
-  char nfilesize = 55;
-  filename.L = sizeof(size_t);
-  filename.V = &nfilesize;
+  int result = send_file(filepath);
 
-  printf("%s", filename.V);
-
-  TLV tlvs[] = {filename, filesize};
-
-  send_control_packet(2, tlvs, 2);
+  if (result != 0) {
+    printf("Error sending data.");
+    return -1;
+  }
 
   printf("Closing...\n");
-  
+
   app_end();
 
   return 0;

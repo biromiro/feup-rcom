@@ -38,7 +38,12 @@ int main(int argc, char **argv)
 
   printf("Waiting to receive start packet.\n");
 
-  receive_start_packet();
+  int result = receive_file();
+
+  if (result != 0) {
+    printf("Error receiving data.");
+    return -1;
+  }
 
   printf("Closing...\n");
   

@@ -18,7 +18,6 @@
 #define BAUDRATE B38400
 #define TIMEOUT 30
 #define NUM_TRANSM 3
-#define MAX_SIZE 10000
 
 #include <termios.h>
 #include <stdlib.h>
@@ -35,8 +34,6 @@ typedef struct {
     unsigned sequenceNumber;
     unsigned timeout;
     unsigned numTransmissions;
-
-    char frame[MAX_SIZE];
 } linkLayer;
 
 int llconfig_reset(linkLayer* ll);

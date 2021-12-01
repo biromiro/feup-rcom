@@ -5,7 +5,7 @@
 
 int stuff(vector *v)
 {
-    char cur_byte;
+    u_int8_t cur_byte;
 
     for(int i = 0; i < v->size; i++)
     {
@@ -23,7 +23,7 @@ int stuff(vector *v)
 
 int destuff(vector *v) 
 {
-    char cur_byte, escaped_byte;
+    u_int8_t cur_byte, escaped_byte;
 
     for(int i = 0; i < v->size; i++)
     {
@@ -42,9 +42,7 @@ int destuff(vector *v)
 
 int send_s_u_frame(int fd, Source src, int ctrl)
 {
-    printf("Sending A=%d, C=%d.\n", src == SENDER ? A_SND : A_RCV, ctrl);
-
-    char buf[5];
+    u_int8_t buf[5];
 
     buf[0] = FLAG;
     buf[1] = src == SENDER ? A_SND : A_RCV;
@@ -52,22 +50,24 @@ int send_s_u_frame(int fd, Source src, int ctrl)
     buf[3] = BCC(buf[1], buf[2]);
     buf[4] = FLAG;
 
-    return write(fd, buf, 5);
+    printf("%d, %c, %c, %c, %c, %c",fd, buf[0], buf[1], buf[2], buf[3], buf[4]);
+
+    int res = write(fd, buf, 5);
+
+    return res;
 }
 
-char receive_s_u_frame(int fd, Source src)
+u_int8_t receive_s_u_frame(int fd, Source src)
 {
-    printf("Expecting S/U frame.\n");
-
-    char buf[5];
-    char ctrl = 0;
+    u_int8_t byte;
+    u_int8_t ctrl = 0;
     int res;
 
     State cur_state = START;
-    char address = src == SENDER ? A_SND : A_RCV;
+    u_int8_t address = src == SENDER ? A_SND : A_RCV;
 
     while (cur_state != STOP) { 
-        res = read(fd, buf, 1);
+        res = read(fd, &byte, 1);
         if (res == -1)
         {
             printf("An error occurred while reading S/U frame.\n;");
@@ -78,43 +78,38 @@ char receive_s_u_frame(int fd, Source src)
             printf("Timed out.\n");
             return -1;
         }
-        printf("got: %x\n", buf[0]);
         switch (cur_state) {
             case START:
-                if (buf[0] == FLAG) cur_state = FLAG_RCV;
+                if (byte == FLAG) cur_state = FLAG_RCV;
                 else printf("Unknown message byte\n");
                 break;
             
             case FLAG_RCV:
-                printf("rcv\n");
-                if (buf[0] == address)
+                if (byte == address)
                     cur_state = A_REC;
-                else if (buf[0] != FLAG) cur_state = START;
+                else if (byte != FLAG) cur_state = START;
                 break;
             
             case A_REC:
-                printf("a\n");
-                if (buf[0] == FLAG) cur_state = FLAG_RCV;
+                if (byte == FLAG) cur_state = FLAG_RCV;
                 else
                 {
-                    ctrl = buf[0];
+                    ctrl = byte;
                     cur_state = C_REC;
                 }
                 break;
             
             case C_REC:
-                printf("c\n");
-                if (BCC(address,ctrl) == buf[0])
+                if (BCC(address,ctrl) == byte)
                     cur_state = BCC_OK;
-                else if (buf[0] == FLAG)
+                else if (byte == FLAG)
                     cur_state = FLAG_RCV;
                 else
                     cur_state = START;
                 break;
             
             case BCC_OK:
-                printf("bcc\n");
-                if (buf[0] == FLAG)
+                if (byte == FLAG)
                     cur_state = STOP;
                 else cur_state = START;
                 break;
@@ -132,13 +127,13 @@ int send_i_frame(int fd, char *buffer, int length, bool seqNum)
     vector v;
     vector_from_arr(&v, buffer, length);
 
-    char address = A_SND;
-    char ctrl = seqNum << 6;
+    u_int8_t address = A_SND;
+    u_int8_t ctrl = seqNum << 6;
     vector_push_front(&v, BCC(address, ctrl));
     vector_push_front(&v, ctrl);
     vector_push_front(&v, address);
     
-    char data_bcc;
+    u_int8_t data_bcc;
 
     data_bcc = buffer[0];
 
@@ -161,27 +156,25 @@ int send_i_frame(int fd, char *buffer, int length, bool seqNum)
 
 int receive_i_frame(int fd, char *buffer, bool seqNum)
 {
-    char buf[5];
+    u_int8_t byte;
     int res, index = 0;
 
     vector v;
     vector_init(&v);
 
-    char prev_byte = 0;
-    char cur_bcc = 1;
-    bool first_data = true;
+    u_int8_t prev_byte = 0;
+    u_int8_t cur_bcc = 1;
+    bool first_data = true, second_data = false;
 
-    const char address = A_SND;
-    char ctrl = seqNum << 6;
-    char inv_ctrl = invSN(seqNum) << 6;
+    const u_int8_t address = A_SND;
+    u_int8_t ctrl = seqNum << 6;
+    u_int8_t inv_ctrl = invSN(seqNum) << 6;
 
     State cur_state = START;
-
-    int i = 0;
     
     while(cur_state != STOP) {
-        char info;
-        res = read(fd, buf, 1);
+
+        res = read(fd, &byte, 1);
 
         if (res == -1)
         {
@@ -195,15 +188,15 @@ int receive_i_frame(int fd, char *buffer, bool seqNum)
             return 1;
         }
 
-        vector_push_back(&v, buf[0]);
+        vector_push_back(&v, byte);
 
         switch(cur_state) {
             case START:
-                if(buf[0] == FLAG) cur_state = DATA;
+                if(byte == FLAG) cur_state = DATA;
                 break;
 
             case DATA:
-                if(buf[0] == FLAG) cur_state = STOP;
+                if(byte == FLAG) cur_state = STOP;
                 break;
 
             default:
@@ -216,41 +209,36 @@ int receive_i_frame(int fd, char *buffer, bool seqNum)
     cur_state = START;
 
     while (cur_state < STOP && index < v.size) {
-        buf[0] = vector_get(&v, index);
-        printf("got: %x\n", buf[0]);
+        byte = vector_get(&v, index);
         switch (cur_state) {
             case START:
-                if (buf[0] == FLAG) cur_state = FLAG_RCV;
+                if (byte == FLAG) cur_state = FLAG_RCV;
                 else cur_state = HEADER_ERR;
                 break;
             
             case FLAG_RCV:
-                printf("rcv\n");
-                if (buf[0] == address)
+                if (byte == address)
                     cur_state = A_REC;
                 else cur_state = HEADER_ERR;
                 break;
             
             case A_REC:
-                printf("a\n");
-                if (buf[0] == ctrl || buf[0] == inv_ctrl)
+                if (byte == ctrl || byte == inv_ctrl)
                     cur_state = C_REC;
                 else cur_state = HEADER_ERR;
                 break;
             
             case C_REC:
-                printf("c\n");
-                if (BCC(address,ctrl) == buf[0])
+                if (BCC(address,ctrl) == byte)
                     cur_state = DATA;
-                else if (BCC(address, inv_ctrl) == buf[0])
+                else if (BCC(address, inv_ctrl) == byte)
                     cur_state = SEQNUM_ERR;
                 else
                     cur_state = HEADER_ERR;
                 break;
             
             case DATA:
-                printf("data\n");
-                if (buf[0] == FLAG)
+                if (index == v.size - 1)
                 {
                     if(cur_bcc == prev_byte)
                         cur_state = STOP;
@@ -261,10 +249,20 @@ int receive_i_frame(int fd, char *buffer, bool seqNum)
                 {
                     if(first_data)
                     {
-                        cur_bcc = buf[0];
+                        cur_bcc = byte;
                         first_data = false;
+                        second_data = true;
                     }
-                    else cur_bcc = BCC(cur_bcc, buf[0]);
+
+                    else if(second_data) {
+                        second_data = false;
+                    }
+
+                    else
+                        cur_bcc = BCC(cur_bcc, prev_byte);
+                    
+                    prev_byte = byte;
+
                 }
                 break;
 
@@ -273,8 +271,6 @@ int receive_i_frame(int fd, char *buffer, bool seqNum)
         }
         index++;
     }
-
-    int size;
 
     if(cur_state == STOP)
     {
@@ -286,7 +282,8 @@ int receive_i_frame(int fd, char *buffer, bool seqNum)
         vector_delete(&v, v.size-1);
         vector_delete(&v, v.size-1);
 
-        size = v.size;
+        int size = v.size;
+
         memcpy(buffer, v.items, size);
 
         vector_free(&v);

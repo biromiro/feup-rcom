@@ -65,9 +65,7 @@ int llwrite(int fd, char *buffer, int length)
     if(length <= 0)
         return -1;
     
-    int response, timeout_no = 0;
-
-    printf("seqnum: %d\n", ll.sequenceNumber);
+    unsigned char response, timeout_no = 0;
 
     do
     {
@@ -86,15 +84,11 @@ int llwrite(int fd, char *buffer, int length)
 
     ll.sequenceNumber = invSN(ll.sequenceNumber);
 
-    printf("new seqnum: %d\n", ll.sequenceNumber);
     return length;
-    
 }
 
 int llread(int fd, char *buffer)
 {
-    printf("seqnum: %d\n", ll.sequenceNumber);
-
     int timeout_no = 0;
     
     int result;
@@ -102,19 +96,16 @@ int llread(int fd, char *buffer)
     do
     {
         result = receive_i_frame(fd, buffer, ll.sequenceNumber);
-        
         timeout_no++;
 
         if (result == -1)
-        {
-            printf("Sending REJ(%d) = %x\n",ll.sequenceNumber, REJ(ll.sequenceNumber));
+        {   
             send_s_u_frame(fd, SENDER, REJ(ll.sequenceNumber));
             timeout_no = 0;
         }
 
         if (result == 0)
         {
-            printf("Sending RR(%d) = %x\n",ll.sequenceNumber, RR(ll.sequenceNumber));
             send_s_u_frame(fd, SENDER, RR(ll.sequenceNumber));
             timeout_no = 0;
         }
@@ -127,6 +118,7 @@ int llread(int fd, char *buffer)
     ll.sequenceNumber = invSN(ll.sequenceNumber);
 
     send_s_u_frame(fd, SENDER, RR(ll.sequenceNumber));
+
     return result;
 }
 
