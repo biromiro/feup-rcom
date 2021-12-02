@@ -96,6 +96,7 @@ int llread(int fd, char *buffer)
     do
     {
         result = receive_i_frame(fd, buffer, ll.sequenceNumber);
+
         timeout_no++;
 
         if (result == -1)
@@ -113,7 +114,10 @@ int llread(int fd, char *buffer)
     } while (result <= 0 && timeout_no < ll.numTransmissions);
 
     if(timeout_no == ll.numTransmissions)
+    {
+        printf("Timed out.\n");
         return -1;
+    }    
     
     ll.sequenceNumber = invSN(ll.sequenceNumber);
 
@@ -124,18 +128,22 @@ int llread(int fd, char *buffer)
 
 int llclose(int fd)
 {
+    int timeout_no = 0;
+
     if(role == SENDER)
     {
-        send_s_u_frame(fd, SENDER, DISC);
-        receive_s_u_frame(fd, SENDER); //DISC
-        send_s_u_frame(fd, SENDER, UA);
+        while (timeout_no < ll.numTransmissions)
+            if (send_s_u_frame(fd, SENDER, DISC) != 0 || receive_s_u_frame(fd, SENDER) != DISC || send_s_u_frame(fd, SENDER, UA) != 0)
+                timeout_no++;
+            else break;
     }
 
     else
     {
-        receive_s_u_frame(fd, SENDER); //DISC
-        send_s_u_frame(fd, SENDER, DISC);
-        receive_s_u_frame(fd, SENDER); //UA
+        while (timeout_no < ll.numTransmissions)
+            if (receive_s_u_frame(fd, SENDER) != DISC || send_s_u_frame(fd, SENDER, DISC) != 0 || receive_s_u_frame(fd, SENDER) != UA)
+                timeout_no++;
+            else break;
     }
     
     tcsetattr(fd, TCSANOW, &oldtio);

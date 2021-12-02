@@ -2,6 +2,7 @@
 #include "utils.h"
 #include "vector.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 int stuff(vector *v)
 {
@@ -50,11 +51,9 @@ int send_s_u_frame(int fd, Source src, int ctrl)
     buf[3] = BCC(buf[1], buf[2]);
     buf[4] = FLAG;
 
-    printf("%d, %c, %c, %c, %c, %c",fd, buf[0], buf[1], buf[2], buf[3], buf[4]);
-
     int res = write(fd, buf, 5);
 
-    return res;
+    return res != 5;
 }
 
 u_int8_t receive_s_u_frame(int fd, Source src)
@@ -74,10 +73,8 @@ u_int8_t receive_s_u_frame(int fd, Source src)
             continue;
         }
         if(res == 0)
-        {
-            printf("Timed out.\n");
             return -1;
-        }
+
         switch (cur_state) {
             case START:
                 if (byte == FLAG) cur_state = FLAG_RCV;
@@ -183,7 +180,6 @@ int receive_i_frame(int fd, char *buffer, bool seqNum)
         }
         if(res == 0)
         {
-            printf("Timed out.\n");
             vector_free(&v);
             return 1;
         }

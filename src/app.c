@@ -1,12 +1,7 @@
 #include "app.h"
-#include "ll.h"
-#include "utils.h"
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <libgen.h>
+
 
 #define DATA 1
 #define START 2
@@ -31,9 +26,11 @@ applicationLayer al;
 fileInfo file_info;
 
 int read_TLV(char *buffer, TLV *tlv)
-{
+{       
     tlv->T = buffer[0];
     tlv->L = buffer[1];
+
+    tlv->V = malloc(tlv->L);
 
     for (int i = 0; i < tlv->L; i++)
     {
@@ -125,10 +122,14 @@ int receive_start_packet()
     int curr_idx = 1;
     TLV curr_tlv;
 
+    int OK;
+
     while(curr_idx < size)
-    {
+    {   
         curr_idx += read_TLV(packet + curr_idx , &curr_tlv);
-        if (update_file_info(&curr_tlv) == -1)
+        OK = update_file_info(&curr_tlv);
+        free(curr_tlv.V);
+        if(OK == -1)
             return -1;
     }
 
@@ -162,13 +163,14 @@ int send_data(FILE *file, size_t size)
     return 0;
 }
 
-int send_file(char *filepath)
+int send_file(const char *filepath)
 {
     FILE *file = fopen(filepath, "r");
+    if(file == NULL) return -1;
     struct stat stats;
     fstat(fileno(file), &stats);
     size_t size = stats.st_size;
-    char *name = basename(filepath);
+    const char *name = basename((char *)filepath);
     size_t filenameSize;
     if ((filenameSize = strnlen(name, MAX_FILENAME_SIZE)) == MAX_FILENAME_SIZE)
     {
@@ -178,18 +180,22 @@ int send_file(char *filepath)
     TLV filename;
     filename.T = 0;
     filename.L = filenameSize;
-    filename.V = (u_int8_t*) name;
+    filename.V = malloc(filenameSize);
+    memcpy(filename.V, name, filenameSize);
 
     TLV filesize;
     filesize.T = 1;
-    char fileSize[MAX_FILENAME_SIZE];
-    snprintf(fileSize, MAX_FILENAME_SIZE, "%ld", size);
-    filesize.L = 2;
-    filesize.V = (u_int8_t*) fileSize;
+    u_int8_t buf[10] = {0};
+    filesize.L = snprintf((char *)buf, 10, "%ld", size);
+    filesize.V = malloc(filesize.L);
+    memcpy(filesize.V, buf, filesize.L);
 
     TLV tlvs[] = {filename, filesize};
 
     send_control_packet(START, tlvs, 2);
+
+    free(filename.V);
+    free(filesize.V);
 
     int res = send_data(file, size);
 
@@ -210,22 +216,20 @@ int receive_data(FILE* file) {
     {   
 
         int read_size = llread(al.fileDescriptor, (char *) packet);
-        
+
         if(packet[0] == END) break;
 
         if(read_size < 4 || packet[0] != DATA) return -1;
 
         if(packet[1] != (al.sequenceNumber++ % 256)) return -1;
 
-        size_t received_data_bytes = 256 * packet[2] + packet[3]; 
+        size_t received_data_bytes = 256 * packet[2] + packet[3];
 
-        printf("received_bytes = %ld\n", received_data_bytes);
-        for(int i = 0; i < read_size; i++){
-            printf("0x%2hhx\t", packet[i]);
-        }
         int res = fwrite(packet + 4, 1, received_data_bytes, file);
 
         if(res <= 0) return -1;
+
+        memset(packet, 0, MAX_PACK_SIZE);
 
     } while (1);
 
