@@ -146,7 +146,7 @@ int send_data(FILE *file, size_t size)
     {
         if (ferror(file)) return -2;
         if (feof(file)) return -1;
-
+        
         int read_size = fread(packet + 4, 1, MAX_PACK_SIZE - 4, file);
 
         packet[0] = DATA;
@@ -154,7 +154,9 @@ int send_data(FILE *file, size_t size)
         packet[2] = read_size / 256;
         packet[3] = read_size - packet[2]*256;
         
-        llwrite(al.fileDescriptor, packet, read_size + 4);
+        int res = llwrite(al.fileDescriptor, packet, read_size + 4);
+
+        if (res == -1) return -3;        
 
         read_bytes += read_size;
         memset(packet, 0, MAX_PACK_SIZE);
@@ -199,7 +201,11 @@ int send_file(const char *filepath)
 
     int res = send_data(file, size);
 
-    if (res != 0) return -1;
+    if (res != 0) 
+    {
+        fclose(file);
+        return -1;
+    }
 
     send_control_packet(END, NULL, 0);
 
@@ -216,10 +222,15 @@ int receive_data(FILE* file) {
     {   
 
         int read_size = llread(al.fileDescriptor, (char *) packet);
+        
+        printf("read_size = %d\n", read_size);
 
         if(packet[0] == END) break;
 
         if(read_size < 4 || packet[0] != DATA) return -1;
+        
+        printf("........SEQ:%d...........", al.sequenceNumber);
+        printf("........%d...............", packet[1]);
 
         if(packet[1] != (al.sequenceNumber++ % 256)) return -1;
 

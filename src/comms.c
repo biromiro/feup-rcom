@@ -172,6 +172,8 @@ int receive_i_frame(int fd, char *buffer, bool seqNum)
     while(cur_state != STOP) {
 
         res = read(fd, &byte, 1);
+    
+        printf("res=%d, byte=0x%2hhx, cur_flag=%d\n", res, byte, cur_state);            
 
         if (res == -1)
         {
@@ -180,8 +182,8 @@ int receive_i_frame(int fd, char *buffer, bool seqNum)
         }
         if(res == 0)
         {
-            vector_free(&v);
-            return 1;
+            printf("stopped????????\n");
+            continue;
         }
 
         vector_push_back(&v, byte);

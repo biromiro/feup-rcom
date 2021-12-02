@@ -34,6 +34,9 @@ int llopen(int port, Source newRole)
     role = newRole;
 
     int timeout_no = 0;
+    
+    printf("hello\n");
+    printf("%d\n", newRole);
 
     if(newRole == SENDER)
     {
@@ -89,36 +92,22 @@ int llwrite(int fd, char *buffer, int length)
 
 int llread(int fd, char *buffer)
 {
-    int timeout_no = 0;
-    
     int result;
     
     do
     {
+        printf("\n-------------------------\n");
         result = receive_i_frame(fd, buffer, ll.sequenceNumber);
-
-        timeout_no++;
-
-        if (result == -1)
-        {   
+        printf("\n*******SEQ:%d**************\n", ll.sequenceNumber);
+        if (result == -1) 
             send_s_u_frame(fd, SENDER, REJ(ll.sequenceNumber));
-            timeout_no = 0;
-        }
 
         if (result == 0)
-        {
             send_s_u_frame(fd, SENDER, RR(ll.sequenceNumber));
-            timeout_no = 0;
-        }
-        
-    } while (result <= 0 && timeout_no < ll.numTransmissions);
+           
 
-    if(timeout_no == ll.numTransmissions)
-    {
-        printf("Timed out.\n");
-        return -1;
-    }    
-    
+    } while (result <= 0);
+
     ll.sequenceNumber = invSN(ll.sequenceNumber);
 
     send_s_u_frame(fd, SENDER, RR(ll.sequenceNumber));
