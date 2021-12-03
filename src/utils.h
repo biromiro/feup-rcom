@@ -17,7 +17,7 @@
 #define MAX_PORT_SIZE 20
 #define BAUDRATE B38400
 #define TIMEOUT 30
-#define NUM_TRANSM 3
+#define NUM_TRANSM 4
 
 #include <termios.h>
 #include <stdlib.h>

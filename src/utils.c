@@ -45,7 +45,5 @@ int llconfig(int fd, linkLayer* ll, struct termios *oldtio)
         exit(-1);
     }
 
-    printf("New termios structure set.\n");
-
     return 0;
 }

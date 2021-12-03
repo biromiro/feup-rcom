@@ -220,8 +220,7 @@ int receive_data(FILE* file) {
     u_int8_t packet[MAX_PACK_SIZE];
 
     do
-    {   
-
+    {
         int read_size = llread(al.fileDescriptor, (char *) packet);
 
         if(packet[0] == END) break;

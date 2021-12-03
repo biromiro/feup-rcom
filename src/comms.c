@@ -73,7 +73,7 @@ u_int8_t receive_s_u_frame(int fd, Source src)
             continue;
         }
         if(res == 0)
-            return -1;
+            return 0;
 
         switch (cur_state) {
             case START:
@@ -183,8 +183,9 @@ int receive_i_frame(int fd, char *buffer, bool seqNum)
 
         if(res == 0)
         {
-            printf("Getting nothing on I frame.\n");
-            continue;
+            printf("Got nothing on I frame.\n");
+            vector_free(&v);
+            return -3;
         }
 
         vector_push_back(&v, byte);

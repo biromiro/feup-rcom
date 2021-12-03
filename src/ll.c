@@ -73,7 +73,11 @@ int llwrite(int fd, char *buffer, int length)
         
         response = receive_s_u_frame(fd, role);
         
-        timeout_no++;
+        if (response == 0 && timeout_no < ll.numTransmissions)
+        {
+            timeout_no++;
+            printf("Timed out waiting on RR/REJ: %d\n", timeout_no); 
+        }
 
         if(response == REJ(ll.sequenceNumber))
             timeout_no = 0;
