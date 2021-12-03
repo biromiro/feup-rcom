@@ -77,14 +77,15 @@ u_int8_t receive_s_u_frame(int fd, Source src)
 
         switch (cur_state) {
             case START:
-                if (byte == FLAG) cur_state = FLAG_RCV;
-                else printf("Unknown message byte\n");
+                if (byte == FLAG)
+                    cur_state = FLAG_RCV;
                 break;
             
             case FLAG_RCV:
                 if (byte == address)
                     cur_state = A_REC;
-                else if (byte != FLAG) cur_state = START;
+                else if (byte != FLAG)
+                    cur_state = START;
                 break;
             
             case A_REC:
@@ -108,7 +109,8 @@ u_int8_t receive_s_u_frame(int fd, Source src)
             case BCC_OK:
                 if (byte == FLAG)
                     cur_state = STOP;
-                else cur_state = START;
+                else
+                    cur_state = START;
                 break;
             
             default:
@@ -171,18 +173,17 @@ int receive_i_frame(int fd, char *buffer, bool seqNum)
     
     while(cur_state != STOP) {
 
-        res = read(fd, &byte, 1);
-    
-        printf("res=%d, byte=0x%2hhx, cur_flag=%d\n", res, byte, cur_state);            
+        res = read(fd, &byte, 1);    
 
         if (res == -1)
         {
             printf("An error occurred while reading I frame.\n;");
             continue;
         }
+
         if(res == 0)
         {
-            printf("stopped????????\n");
+            printf("Getting nothing on I frame.\n");
             continue;
         }
 

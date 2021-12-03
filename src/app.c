@@ -18,7 +18,7 @@ typedef struct {
 
 typedef struct {
     size_t fileSize;
-    char fileNameSz;
+    u_int8_t fileNameSz;
     char* fileName;
 } fileInfo;
 
@@ -202,7 +202,8 @@ int send_file(const char *filepath)
     int res = send_data(file, size);
 
     if (res != 0) 
-    {
+    {   
+        printf("An error occurred when trying to transfer the data. Closing the file...\n");
         fclose(file);
         return -1;
     }
@@ -222,15 +223,10 @@ int receive_data(FILE* file) {
     {   
 
         int read_size = llread(al.fileDescriptor, (char *) packet);
-        
-        printf("read_size = %d\n", read_size);
 
         if(packet[0] == END) break;
 
         if(read_size < 4 || packet[0] != DATA) return -1;
-        
-        printf("........SEQ:%d...........", al.sequenceNumber);
-        printf("........%d...............", packet[1]);
 
         if(packet[1] != (al.sequenceNumber++ % 256)) return -1;
 
@@ -251,10 +247,11 @@ int receive_file()
 {
     receive_start_packet();
 
-    char filename[file_info.fileNameSz + 1 + 1];
+    char filename[file_info.fileNameSz + 1];
 
-    filename[0] = 'c';
-    memcpy(filename + 1, file_info.fileName, file_info.fileNameSz + 1);
+    memcpy(filename, file_info.fileName, file_info.fileNameSz);
+
+    filename[file_info.fileNameSz] = 0;
 
     FILE* file = fopen(filename, "w");
 

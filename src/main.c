@@ -1,5 +1,6 @@
 #include "app.h"
 #include "utils.h"
+#include <stdio.h>
 #include <string.h>
 
 int print_usage()
@@ -25,7 +26,7 @@ int main(int argc, char **argv) {
     if ((role == SENDER && argc != 4) || (role == RECEIVER && argc != 3))
         return print_usage();
 
-    printf("Starting...\n");
+    printf("Starting app...\n");
 
     app_start(port, role);
 
@@ -39,7 +40,7 @@ int main(int argc, char **argv) {
 
         if (result != 0)
         {
-            printf("Error sending data.");
+            printf("Error sending data.\n");
             return -1;
         }
     }
@@ -52,15 +53,16 @@ int main(int argc, char **argv) {
 
         if (result != 0)
         {
-            printf("Error receiving data.");
+            printf("Error receiving data.\n");
             return -1;
         }
-
     }
 
     printf("Closing...\n");
 
     app_end();
+
+    printf("App is closed.\n");
 
     return 0;
 }

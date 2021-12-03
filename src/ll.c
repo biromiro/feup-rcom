@@ -34,9 +34,6 @@ int llopen(int port, Source newRole)
     role = newRole;
 
     int timeout_no = 0;
-    
-    printf("hello\n");
-    printf("%d\n", newRole);
 
     if(newRole == SENDER)
     {
@@ -73,15 +70,17 @@ int llwrite(int fd, char *buffer, int length)
     do
     {
         send_i_frame(fd, buffer, length, ll.sequenceNumber);
+        
         response = receive_s_u_frame(fd, role);
-        timeout_no++;
+        
         if(response == REJ(ll.sequenceNumber))
             timeout_no = 0;
+
     } while (response != RR(invSN(ll.sequenceNumber)) && timeout_no < ll.numTransmissions);
 
     if(timeout_no == ll.numTransmissions)
     {
-        printf("Timed out.\n");
+        printf("Timed out llwrite.\n");
         return -1;
     }
 
@@ -96,15 +95,13 @@ int llread(int fd, char *buffer)
     
     do
     {
-        printf("\n-------------------------\n");
         result = receive_i_frame(fd, buffer, ll.sequenceNumber);
-        printf("\n*******SEQ:%d**************\n", ll.sequenceNumber);
+
         if (result == -1) 
             send_s_u_frame(fd, SENDER, REJ(ll.sequenceNumber));
 
         if (result == 0)
             send_s_u_frame(fd, SENDER, RR(ll.sequenceNumber));
-           
 
     } while (result <= 0);
 
@@ -134,6 +131,9 @@ int llclose(int fd)
                 timeout_no++;
             else break;
     }
+
+    if(timeout_no == ll.numTransmissions)
+        printf("Timed out trying to llclose gracefully.\n");
     
     tcsetattr(fd, TCSANOW, &oldtio);
     close(fd);
